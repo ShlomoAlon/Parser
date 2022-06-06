@@ -1,13 +1,6 @@
 use trait_set::trait_set;
 use anyhow::{Result, anyhow};
 fn main() {
-    let f = literal("how".to_owned());
-    let h = literal("ho".to_owned());
-    let c = choice(vec![f.clone(), h]);
-    let u = c("hohowdie").unwrap().1;
-    let m = many(f)("howhowhows").unwrap().1;
-    println!("{:?} {:?}", u, m)
-
 }
 type Ast<A> = A;
 type ParseResult<'a, A> = Result<(&'a str, Ast<A>)>;
@@ -16,16 +9,6 @@ trait_set! {
     pub trait Parser<'a, A> = Fn(&'a str) -> ParseResult<'a, A> + Clone
 }
 
-// fn literal<'a>(s: String) -> impl Fn(&'a str) -> ParseResult<'a, String>{
-//     move |t: &'a str| {
-//         if t.starts_with(&s){
-//             let t = t.split_at(s.len());
-//             Ok((t.0, t.1.to_owned()))
-//         } else {
-//             Err(anyhow!("didnt work"))
-//         }
-//     }
-// }
 
 fn literal<'a>(s: String) -> impl Parser<'a, String>{
     move |t: &'a str| {
@@ -96,6 +79,15 @@ fn map_ast<'a, A, B: Clone>(s: impl Parser<'a, A>, f: impl Fn(A) -> B + Clone) -
             Err(_) => Err(anyhow!("didnt work"))
         }
     }
+}
+fn lift2<'a, A, B, C>(p1: impl Parser<'a, A>, p2: impl Parser<'a, B>, f: impl Fn(A, B) -> C + Clone) ->
+impl Parser<'a, C>{
+    move |t: &'a str| {
+        let res1 = p1(t)?;
+        let res2 = p2(res1.0)?;
+        Ok((res2.0, f(res1.1, res2.1)))
+    }
+
 }
 
 
