@@ -87,7 +87,6 @@ impl Parser<'a, C>{
         let res2 = p2(res1.0)?;
         Ok((res2.0, f(res1.1, res2.1)))
     }
-
 }
 
 
