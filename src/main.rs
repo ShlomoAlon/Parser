@@ -3,16 +3,17 @@ use anyhow::{Result, anyhow};
 fn main() {
     let f = literal("how".to_owned());
     let h = literal("ho".to_owned());
-    let c = choice(vec![f, h]);
+    let c = choice(vec![f.clone(), h]);
     let u = c("hohowdie").unwrap().1;
-    println!("{:?} ", u)
+    let m = many(f)("howhowhows").unwrap().1;
+    println!("{:?} {:?}", u, m)
 
 }
 type Ast<A> = A;
 type ParseResult<'a, A> = Result<(&'a str, Ast<A>)>;
 trait_set! {
     pub trait ThreadSafe = Send + Sync;
-    pub trait Parser<'a, A> = Fn(&'a str) -> ParseResult<'a, A>
+    pub trait Parser<'a, A> = Fn(&'a str) -> ParseResult<'a, A> + Clone
 }
 
 // fn literal<'a>(s: String) -> impl Fn(&'a str) -> ParseResult<'a, String>{
@@ -36,7 +37,7 @@ fn literal<'a>(s: String) -> impl Parser<'a, String>{
         }
     }
 }
-fn sequence<'a, A>(s: Vec<impl Parser<'a, A>>) -> impl Parser<'a, Vec<A>>{
+fn sequence<'a, A: Default>(s: Vec<impl Parser<'a, A>>) -> impl Parser<'a, Vec<A>>{
     move |t: &'a str| {
         let mut text = t;
         let mut result = vec![];
@@ -77,6 +78,22 @@ fn many<'a, A>(s: impl Parser<'a, A>) -> impl Parser<'a, Vec<A>>{
             Err(anyhow!("no matcht"))
         } else {
             Ok((text, result))
+        }
+    }
+}
+fn not<'a, A: Default>(s: impl Parser<'a, A>) -> impl Parser<'a, A>{
+    move |t: &'a str|{
+        match &s(t) {
+            Ok(_) => Err(anyhow!("it succeeded when we wanted failure")),
+            Err(_) => Ok((t, A::default()))
+        }
+    }
+}
+fn map_ast<'a, A, B: Clone>(s: impl Parser<'a, A>, f: impl Fn(A) -> B + Clone) -> impl Parser<'a, B>{
+    move |t: &'a str|{
+        match s(t) {
+            Ok(s) => Ok((s.0, f(s.1))),
+            Err(_) => Err(anyhow!("didnt work"))
         }
     }
 }
