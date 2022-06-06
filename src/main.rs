@@ -1,9 +1,9 @@
 use trait_set::trait_set;
 use anyhow::{Result, anyhow};
 fn main() {
-    let f = literal("ho".to_owned());
-    let h = literal("how".to_owned());
-    let c = sequence(vec![f, h]);
+    let f = literal("how".to_owned());
+    let h = literal("ho".to_owned());
+    let c = choice(vec![f, h]);
     let u = c("hohowdie").unwrap().1;
     println!("{:?} ", u)
 
@@ -48,4 +48,37 @@ fn sequence<'a, A>(s: Vec<impl Parser<'a, A>>) -> impl Parser<'a, Vec<A>>{
         Ok((text, result))
     }
 }
+fn choice<'a, A>(s: Vec<impl Parser<'a, A>>) -> impl Parser<'a, A>{
+    move |t: &'a str| {
+        let mut text = t;
+        let mut s = s.iter();
+        loop {
+            if let Ok(i) = s.next().ok_or(anyhow!("no match"))?(text){
+                return Ok(i)
+            }
+        }
+    }
+}
+
+fn many<'a, A>(s: impl Parser<'a, A>) -> impl Parser<'a, Vec<A>>{
+    move |t: &'a str| {
+        let mut result = vec![];
+        let mut text = t;
+        loop {
+            match s(text) {
+                Ok(i) => {
+                    result.push(i.1);
+                    text = i.0;
+                }
+                Err(_) => break
+            }
+        }
+        if result.len() == 0{
+            Err(anyhow!("no matcht"))
+        } else {
+            Ok((text, result))
+        }
+    }
+}
+
 
