@@ -17,8 +17,7 @@ fn main() {
         .choice()
         .many_one();
 
-    let integer = plus_or_minus
-        .lift2(digits.clone(),
+    let integer = plus_or_minus.lift2(digits.clone(),
             |mut b, n|
                 (b + n.join("").as_str()).to_string()
             );
