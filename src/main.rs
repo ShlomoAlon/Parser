@@ -1,8 +1,5 @@
 use std::rc::Rc;
-use std::sync::Arc;
-use trait_set::trait_set;
 use anyhow::{Result, anyhow};
-use dyn_clone::DynClone;
 
 fn main() {
     let plus_or_minus =
@@ -93,11 +90,16 @@ impl<A: 'static + Default> Parsers<A> for Parser<A> {
 }
 trait vecParser<A>{
     fn choice(self) -> Parser<A>;
+    fn sequence(self) -> Parser<Vec<A>>;
 }
 
 impl<A: 'static> vecParser<A> for Vec<Parser<A>> {
     fn choice(self) -> Parser<A> {
         choice(self)
+    }
+
+    fn sequence(self) -> Parser<Vec<A>> {
+        sequence(self)
     }
 }
 
