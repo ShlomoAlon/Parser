@@ -5,24 +5,103 @@ use anyhow::{Result, anyhow};
 use dyn_clone::DynClone;
 
 fn main() {
-    let plus  = literal("+".to_owned());
-    let minus =  literal("-".to_owned());
-    let plus_or_minus = choice(vec![plus, minus]);
-    let plus_or_minus = option(plus_or_minus);
-    let plus_or_minus = map_ast(plus_or_minus, |x| x.unwrap_or("".to_string()));
-    let digit = choice(
-        (0..10).map(|x| literal(x.to_string())).collect());
-    let digits = many_one(digit);
-    let integer = lift2(plus_or_minus, digits, |mut b, n|{
-        b.push_str(n.join("").as_str())
-    });
+    let plus_or_minus =
+        vec!["+".lit(), "-".lit()]
+        .choice()
+        .option()
+        .map_ast(|x| x.unwrap_or("".to_string()));
+
+    let digits = (0..10)
+        .map(|x| x.to_string().lit())
+        .collect::<Vec<Parser<String>>>()
+        .choice()
+        .many_one();
+
+    let integer = plus_or_minus
+        .lift2(digits.clone(),
+            |mut b, n|
+                (b + n.join("").as_str()).to_string()
+            );
+
     let p = integer("+00012345   ").unwrap();
+
 
     println!("{:?}", p);
 }
 type Ast<A> = A;
 type ParseResult<'a, A> = Result<(&'a str, Ast<A>)>;
 type Parser<A> = Rc<dyn for <'a> Fn(&'a str) -> ParseResult<'a, A>>;
+trait to_literal{
+    fn lit(&self) -> Parser<String>;
+}
+trait to_literal2{
+    fn lit(self) -> Parser<String>;
+}
+impl to_literal for str {
+    fn lit(&self) -> Parser<String> {
+        literal(self.to_string())
+    }
+}
+
+impl to_literal2 for String {
+    fn lit(self) -> Parser<String> {
+        literal(self)
+    }
+
+}
+trait Parsers<A>{
+    fn many_one(self) -> Parser<Vec<A>>;
+    fn map_ast<B>(self, f: impl Fn(A) -> B + 'static) -> Parser<B>;
+    fn not(self) -> Parser<A>;
+    fn option(self) -> Parser<Option<A>>;
+    fn sequence(self, x: &mut Vec<Parser<A>>) -> Parser<Vec<A>>;
+    fn choice(self, x: &mut Vec<Parser<A>>) -> Parser<A>;
+    fn lift2<B: 'static, C>(self, p2: Parser<B>, f: impl Fn(A, B) -> C + 'static) ->
+    Parser<C>;
+}
+
+impl<A: 'static + Default> Parsers<A> for Parser<A> {
+    fn many_one(self) -> Parser<Vec<A>> {
+        many_one(self)
+    }
+    fn map_ast<B>(self, f: impl Fn(A) -> B + 'static) -> Parser<B> {
+        map_ast(self, f)
+    }
+    fn not(self) -> Parser<A> {
+        not(self)
+    }
+
+    fn option(self) -> Parser<Option<A>> {
+        option(self)
+    }
+
+    fn sequence(self, x: & mut Vec<Parser<A>>) -> Parser<Vec<A>> {
+        let mut v = vec![self];
+        v.append(x);
+        sequence(v)
+    }
+
+    fn choice(self, x: &mut Vec<Parser<A>>) -> Parser<A> {
+        let mut v = vec![self];
+        v.append(x);
+        choice(v)
+
+    }
+
+    fn lift2<B: 'static, C>(self, p2: Parser<B>, f: impl Fn(A, B) -> C + 'static) -> Parser<C> {
+        lift2(self, p2, f)
+    }
+}
+trait vecParser<A>{
+    fn choice(self) -> Parser<A>;
+}
+
+impl<A: 'static> vecParser<A> for Vec<Parser<A>> {
+    fn choice(self) -> Parser<A> {
+        choice(self)
+    }
+}
+
 
 pub fn literal(s: String) -> Parser<String>{
     Rc::new(move |t: & str| {
@@ -58,23 +137,11 @@ fn choice<A: 'static>(s: Vec<Parser<A>>) -> Parser<A>{
     })
 }
 
-fn many_one<A: 'static>(s: Parser<A>) -> Parser<Vec<A>>{ Rc::new(move |t: & str| { let mut result = vec![];
-        let mut text = t;
-        loop {
-            match s(text) {
-                Ok(i) => {
-                    result.push(i.1);
-                    text = i.0;
-                }
-                Err(_) => break
-            }
-        }
-        if result.len() == 0{
-            Err(anyhow!("no matcht"))
-        } else {
-            Ok((text, result))
-        }
-    })
+fn many_one<A: 'static>(s: Parser<A>) -> Parser<Vec<A>>{
+    many(s, 1, 0)
+}
+fn many_min<A: 'static>(s: Parser<A>, min: usize) -> Parser<Vec<A>>{
+    many(s, min, 0)
 }
 
 fn many<A: 'static>(s: Parser<A>, min: usize, max: usize) -> Parser<Vec<A>>{
