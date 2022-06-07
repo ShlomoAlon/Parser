@@ -58,8 +58,7 @@ fn choice<A: 'static>(s: Vec<Parser<A>>) -> Parser<A>{
     })
 }
 
-fn many_one<A: 'static>(s: Parser<A>) -> Parser<Vec<A>>{ Rc::new(move |t: & str| {
-        let mut result = vec![];
+fn many_one<A: 'static>(s: Parser<A>) -> Parser<Vec<A>>{ Rc::new(move |t: & str| { let mut result = vec![];
         let mut text = t;
         loop {
             match s(text) {
@@ -78,6 +77,28 @@ fn many_one<A: 'static>(s: Parser<A>) -> Parser<Vec<A>>{ Rc::new(move |t: & str|
     })
 }
 
+fn many<A: 'static>(s: Parser<A>, min: usize, max: usize) -> Parser<Vec<A>>{
+    Rc::new(move |t: & str| { let mut result = vec![];
+    let mut text = t;
+    loop {
+        match s(text) {
+            Ok(i) => {
+                result.push(i.1);
+                text = i.0;
+            }
+            Err(_) => break
+        }
+        if result.len() == max{
+            break
+        }
+    }
+    if result.len() < min{
+        Err(anyhow!("no matcht"))
+    } else {
+        Ok((text, result))
+    }
+})
+}
 fn not<A: 'static + Default>(s: Parser<A>) -> Parser<A>{
     Rc::new(move |t: & str|{
         match &s(t) {
