@@ -3,8 +3,7 @@ use std::rc::Rc;
 
 use anyhow::{anyhow, Result};
 
-fn main() {
-}
+fn main() {}
 
 type Ast<A> = A;
 type ParseResult<'a, A> = Result<(&'a str, Ast<A>)>;
@@ -17,7 +16,6 @@ trait to_literal {
 trait to_literal2 {
     fn lit(self) -> Parser<String>;
 }
-
 impl to_literal for str {
     fn lit(&self) -> Parser<String> {
         literal(self.to_string())
@@ -40,7 +38,18 @@ trait Parsers<A> {
     fn lift2<B: 'static, C>(self, p2: Parser<B>, f: impl Fn(A, B) -> C + 'static) -> Parser<C>;
     fn or_default(self, x: A) -> Parser<A>;
     fn bind<B>(self, f: impl Fn(A) -> Parser<B> + 'static) -> Parser<B>;
+}
+trait P<A>{
+    fn join( self, p2: Parser<A>) -> Self;
+}
 
+impl<A: 'static + Clone + Default> P<Vec<A>> for Parser<Vec<A>> {
+    fn join(self, p2: Parser<Vec<A>>) -> Self {
+        self.lift2(p2, |mut x, mut y| {
+            x.append(&mut y);
+            x
+        })
+    }
 }
 
 impl<A: 'static + Default + Clone> Parsers<A> for Parser<A> {
@@ -97,7 +106,12 @@ impl<A: 'static> vecParser<A> for Vec<Parser<A>> {
         sequence(self)
     }
 }
-
+pub fn map<A: 'static, B>(
+    p: Parser<A>,
+    f: impl Fn(ParseResult<A>) -> ParseResult<B> + 'static,
+) -> Parser<B> {
+    Rc::new(move |t| f(p(t)))
+}
 pub fn literal(s: String) -> Parser<String> {
     Rc::new(move |t: &str| {
         if t.starts_with(&s) {
@@ -108,20 +122,23 @@ pub fn literal(s: String) -> Parser<String> {
         }
     })
 }
-fn char_predicate(f: impl Fn(char) -> bool + 'static) -> Parser<char>{
-    any().bind(move |t|{
-        if f(t){
+fn char_predicate(f: impl Fn(char) -> bool + 'static) -> Parser<char> {
+    any().bind(move |t| {
+        if f(t) {
             default(t)
-        } else { fail(format!("unexpected char {}", t)) }
+        } else {
+            fail(format!("unexpected char {}", t))
+        }
     })
 }
 
-fn bind<A: 'static, B>(p1: Parser<A>, f: impl Fn(A) -> Parser<B> + 'static) -> Parser<B>{
+fn bind<A: 'static, B>(p1: Parser<A>, f: impl Fn(A) -> Parser<B> + 'static) -> Parser<B> {
     Rc::new(move |t| {
         let x = p1(t)?;
         let p2 = f(x.1);
         p2(x.0)
-    })}
+    })
+}
 
 fn float(t: &str) -> ParseResult<f64> {
     let plus_or_minus = vec!["+".lit(), "-".lit()]
@@ -247,17 +264,17 @@ fn any() -> Parser<char> {
         }
     })
 }
-fn default<A: 'static + Clone>(x: A) -> Parser<A>{
-    Rc::new(move |t|{
-        Ok((t, x.clone()))
-    })
+fn default<A: 'static + Clone>(x: A) -> Parser<A> {
+    Rc::new(move |t| Ok((t, x.clone())))
 }
 
 fn or_default<A: 'static + Clone>(p: Parser<A>, default: A) -> Parser<A> {
     Rc::new(move |t| Ok(p(t).unwrap_or((t, default.clone()))))
 }
-fn fail<A>(err: String) -> Parser<A>{
-    Rc::new(move |_|{
-        Err(anyhow!("{}", err))
-    })
+fn fail<A>(err: String) -> Parser<A> {
+    Rc::new(move |_| Err(anyhow!("{}", err)))
 }
+fn to_vec<A: 'static + Default + Clone>(p: Parser<A>) -> Parser<Vec<A>> {
+    p.map_ast(|x| vec![x])
+}
+
