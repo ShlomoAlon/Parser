@@ -3,17 +3,6 @@ mod Parsers;
 
 fn main() {}
 
-// fn char_predicate(f: impl Fn(char) -> bool + 'static) -> Parsers<char> {
-//     any().bind(move |t| {
-//         if f(t) {
-//             default(t)
-//         } else {
-//             fail(format!("unexpected char {}", t))
-//         }
-//     })
-// }
-//
-//
 // fn float(t: &str) -> ParseResult<f64> {
 //     let plus_or_minus = vec!["+".lit(), "-".lit()]
 //         .choice()
