@@ -18,7 +18,7 @@ pub type ParseResult<'a, A> = Result<OkP<'a, A>>;
 
 type ParserInner<A> = Rc<dyn for<'a> Fn(&'a str) -> ParseResult<'a, A>>;
 
-struct Parser<A: 'static>(ParserInner<A>);
+pub struct Parser<A: 'static>(ParserInner<A>);
 
 impl<A> Deref for Parser<A> {
     type Target = ParserInner<A>;
@@ -32,13 +32,13 @@ impl<A> Parser<A> {
         Parser::<A> { 0: Rc::new(p) }
     }
 
-    fn map_ast<B>(self, f: impl Fn(A) -> B + 'static) -> Parser<B> {
+    pub(crate) fn map_ast<B>(self, f: impl Fn(A) -> B + 'static) -> Parser<B> {
         Parser::new(move |t: &str| match self(t) {
             Ok(s) => ok_parse(s.remaining_str, f(s.ast)),
             Err(_) => Err(anyhow!("didnt work")),
         })
     }
-    fn lift2<B, C>(self, p2: Parser<B>, f: impl Fn(A, B) -> C + 'static) -> Parser<C> {
+    pub(crate) fn lift2<B, C>(self, p2: Parser<B>, f: impl Fn(A, B) -> C + 'static) -> Parser<C> {
         Parser::new(move |t: &str| {
             let res1 = self(t)?;
             let res2 = p2(res1.remaining_str)?;
@@ -72,7 +72,7 @@ impl<A> Parser<A> {
             }
         })
     }
-    fn many_one(self) -> Parser<Vec<A>> {
+    pub(crate) fn many_one(self) -> Parser<Vec<A>> {
         self.many(1, 0)
     }
     fn many_min(self, min: usize) -> Parser<Vec<A>> {
@@ -117,7 +117,7 @@ impl<A> Parser<A> {
             p2(x.remaining_str)
         })
     }
-    fn fail(err: String) -> Self{
+    fn fail(err: String) -> Self {
         Parser::new(move |_| Err(anyhow!("didnt work")))
     }
 }
@@ -132,7 +132,7 @@ impl<A: Default> Parser<A> {
 }
 
 impl<A: Clone> Parser<A> {
-    fn or_default(self, default: A) -> Self {
+    pub(crate) fn or_default(self, default: A) -> Self {
         Parser::new(move |t| Ok(self(t).unwrap_or(OkP::new(t, default.clone()))))
     }
     fn default(x: A) -> Parser<A> {
@@ -140,7 +140,7 @@ impl<A: Clone> Parser<A> {
     }
 }
 impl Parser<String> {
-    fn literal<A: ToString>(l: A) -> Self {
+    pub fn literal<A: ToString>(l: A) -> Self {
         let l = l.to_string();
         Parser::new(move |t| {
             if t.starts_with(&l) {
@@ -163,9 +163,9 @@ impl Parser<char> {
             }
         })
     }
-    fn char_predicate(f: impl Fn(char) -> bool + 'static) -> Self{
-        Parser::any().bind(move |t|{
-            if f(t){
+    fn char_predicate(f: impl Fn(char) -> bool + 'static) -> Self {
+        Parser::any().bind(move |t| {
+            if f(t) {
                 Parser::default(t)
             } else {
                 Parser::fail("didnt work".to_string())
@@ -184,4 +184,14 @@ impl<A> Parser<Vec<A>> {
 }
 pub fn ok_parse<A>(remaining_str: &str, ast: A) -> ParseResult<A> {
     Ok(OkP::new(remaining_str, ast))
+}
+
+pub trait VecParsers<A> {
+    fn choice(self) -> Parser<A>;
+}
+
+impl<A> VecParsers<A> for Vec<Parser<A>> {
+    fn choice(self) -> Parser<A> {
+        Parser::choice(self)
+    }
 }
