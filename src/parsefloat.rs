@@ -2,10 +2,10 @@ use crate::Parsers::{Parser, VecParsers};
 use std::ops::Add;
 
 impl Parser<String> {
-    fn then(self, p2: Self) -> Self {
+    pub fn then(self, p2: Self) -> Self {
         self.lift2(p2, |x, y| x.add(&y))
     }
-    fn digit() -> Self {
+    pub fn digit() -> Self {
         (0..10)
             .map(Parser::literal)
             .collect::<Vec<Parser<String>>>()
@@ -23,7 +23,7 @@ impl Parser<String> {
         Parser::plus_or_minus().then(Parser::digits())
     }
     fn float() -> Self {
-        Parser::integer().then(
+        Self::integer().then(
             Parser::literal(".")
                 .then(Parser::digits())
                 .or_default("".to_string()),
@@ -32,8 +32,15 @@ impl Parser<String> {
 }
 
 impl Parser<f64> {
-    fn float() -> Self {
+    pub fn float() -> Self {
         Parser::<String>::float().map_ast(|x| x.parse().unwrap())
+    }
+}
+
+impl Parser<i64> {
+    pub fn integer() -> Self{
+        Parser::<String>::integer()
+            .map_ast(|x| x.parse().unwrap())
     }
 }
 
@@ -42,3 +49,9 @@ impl Parser<Vec<String>> {
         self.map_ast(|x| x.join(""))
     }
 }
+
+pub fn isAlphaNumeric() -> Parser<char>{
+    Parser::char_predicate(|x| x.is_alphanumeric())
+}
+
+pub fn is_alpha() -> Parser<char>{Parser::char_predicate(|x| x.is_alphabetic())}

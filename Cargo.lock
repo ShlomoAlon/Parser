@@ -15,6 +15,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
+name = "lazy_static"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -66,5 +72,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "dyn-clone",
+ "lazy_static",
  "trait-set",
 ]
