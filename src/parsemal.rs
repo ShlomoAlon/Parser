@@ -1,12 +1,12 @@
-use crate::parsefloat::{isAlphaNumeric, is_alpha};
-use crate::parsemal::Maltype::{Bool, Nil, Str, Symbol};
+use crate::parsefloat::{isAlphaNumeric, is_alpha, white_space};
+use crate::parsemal::Maltype::{Bool, List, Nil, Num, Str, Symbol};
 use crate::Parser;
 use crate::Parsers::VecParsers;
 use anyhow::Result;
 use lazy_static::lazy_static;
 use std::rc::Rc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Maltype {
     Str(String),
     Symbol(String),
@@ -14,10 +14,10 @@ pub enum Maltype {
     Nil,
     Bool(bool),
     List(Rc<Vec<Maltype>>),
-    Func(Rc<dyn Fn(Vec<Maltype>) -> Result<Maltype>>),
+    // Func(Rc<dyn Fn(Vec<Maltype>) -> Result<Maltype>>),
 }
 pub fn parse_expr() -> Parser<Maltype> {
-    parse_nil()
+    Parser::choice(vec![atom(), parse_list()])
 }
 pub fn parse_nil() -> Parser<Maltype> {
     Parser::literal("nil").discard_then_parse(Parser::default(Nil))
@@ -38,7 +38,10 @@ fn parse_symbol() -> Parser<Maltype> {
         )
         .map_ast(|x| Symbol(x))
 }
-fn parse_str() -> Parser<Maltype> {
+fn parse_float() -> Parser<Maltype> {
+    Parser::float().map_ast(|x| Num(x))
+}
+pub fn parse_str() -> Parser<Maltype> {
     let double_quote = Parser::literal("\"");
     let escape_char = Parser::literal("\\")
         .discard_then_parse(Parser::any())
@@ -56,4 +59,15 @@ fn parse_str() -> Parser<Maltype> {
         .map_ast(|x| Str(x.join("")))
         .parse_then_discard(double_quote)
 }
-fn parse_list() -> Parser<Maltype> {}
+fn parse_list() -> Parser<Maltype> {
+    let rob_pike = parse_expr().sep_by(white_space().many_min(1)).map_ast(|x| List(Rc::new(x)));
+
+    Parser::literal("(")
+        .discard_then_parse(white_space().many_min(0))
+        .discard_then_parse(rob_pike)
+        .parse_then_discard(white_space().many_min(0))
+        .parse_then_discard(Parser::literal(")"))
+}
+fn atom() -> Parser<Maltype> {
+    Parser::choice(vec![parse_nil(), parse_bool(), parse_symbol(), parse_str(), parse_float()])
+}

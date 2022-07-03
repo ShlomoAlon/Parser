@@ -38,9 +38,8 @@ impl Parser<f64> {
 }
 
 impl Parser<i64> {
-    pub fn integer() -> Self{
-        Parser::<String>::integer()
-            .map_ast(|x| x.parse().unwrap())
+    pub fn integer() -> Self {
+        Parser::<String>::integer().map_ast(|x| x.parse().unwrap())
     }
 }
 
@@ -50,8 +49,13 @@ impl Parser<Vec<String>> {
     }
 }
 
-pub fn isAlphaNumeric() -> Parser<char>{
+pub fn isAlphaNumeric() -> Parser<char> {
     Parser::char_predicate(|x| x.is_alphanumeric())
 }
 
-pub fn is_alpha() -> Parser<char>{Parser::char_predicate(|x| x.is_alphabetic())}
+pub fn white_space() -> Parser<char> {
+    Parser::char_predicate(|x| x.is_ascii_whitespace())
+}
+pub fn is_alpha() -> Parser<char> {
+    Parser::char_predicate(|x| x.is_alphabetic())
+}

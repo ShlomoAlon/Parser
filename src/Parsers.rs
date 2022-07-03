@@ -37,7 +37,7 @@ impl<A> Parser<A> {
     pub fn new(p: impl for<'a> Fn(&'a str) -> ParseResult<'a, A> + 'static) -> Self {
         Parser::<A> { 0: Rc::new(p) }
     }
-    pub fn new2(p: Rc<dyn for <'a> Fn(&'a str) -> ParseResult<'a, A> + 'static>) -> Self {
+    pub fn new2(p: Rc<dyn for<'a> Fn(&'a str) -> ParseResult<'a, A> + 'static>) -> Self {
         Parser::<A> { 0: p }
     }
 
@@ -132,9 +132,10 @@ impl<A> Parser<A> {
     pub fn discard_then_parse<B>(self, p2: Parser<B>) -> Parser<B> {
         self.lift2(p2, |x, y| y)
     }
-    pub fn parse_then_discard<B>(self, p2: Parser<B>) -> Parser<A>{
+    pub fn parse_then_discard<B>(self, p2: Parser<B>) -> Parser<A> {
         self.lift2(p2, |x, y| x)
     }
+
 }
 
 impl<A: Default> Parser<A> {
@@ -152,6 +153,19 @@ impl<A: Clone> Parser<A> {
     }
     pub fn default(x: A) -> Parser<A> {
         Parser::new(move |t| ok_parse(t, x.clone()))
+    }
+    pub fn sep_by<B: Clone>(self, sep: Parser<B>) -> Parser<Vec<A>> {
+        let s = sep.discard_then_parse(self.clone()).many_min(0);
+        Parser::new(move |text| match self(text) {
+            Ok(t) =>{
+                let (remaining, ast) = (t.remaining_str, t.ast) ;
+                s.clone().map_ast(move |x| {
+                    let mut x = x;
+                    x.insert(0, ast.clone());
+                    x
+                })(remaining)}
+            Err(_) => Ok(OkP::new(text, vec![])),
+        })
     }
 }
 impl Parser<String> {
@@ -210,5 +224,3 @@ impl<A> VecParsers<A> for Vec<Parser<A>> {
         Parser::choice(self)
     }
 }
-
-
